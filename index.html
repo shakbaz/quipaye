@@ -24,7 +24,6 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Cairo:wght@400;600;700;900&display=swap');
     * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
@@ -210,6 +209,8 @@ const TEXT = {
     languageTitle: "Langue",
     themeTitle: "Thème",
     share: "Partager",
+    shareText: (name) => `🎰 Découvre l'appli qui désigne le payeur en un clic 👉`,
+    shareFallback: "Lien copié ! Colle-le où tu veux 😄",
     copyText: (name) => `${name} doit payer ! 💸`,
     resultLabel: (name) => `${name} a été tiré au sort`
   },
@@ -230,6 +231,8 @@ const TEXT = {
     languageTitle: "Language",
     themeTitle: "Theme",
     share: "Share",
+    shareText: (name) => `🎰 Discover the app that picks who pays in one click 👉`,
+    shareFallback: "Link copied! Paste it anywhere 😄",
     copyText: (name) => `${name} has to pay! 💸`,
     resultLabel: (name) => `${name} was selected`
   },
@@ -250,6 +253,8 @@ const TEXT = {
     languageTitle: "اللغة",
     themeTitle: "المظهر",
     share: "مشاركة",
+    shareText: (name) => `🎰 اكتشف التطبيق الذي يختار من يدفع بنقرة واحدة 👉`,
+    shareFallback: "تم نسخ الرابط! الصقه أينما تريد 😄",
     copyText: (name) => `💸 ${name} سيدفع!`,
     resultLabel: (name) => `تم اختيار ${name}`
   }
@@ -359,36 +364,21 @@ function playVictorySound() {
   });
 }
 
-async function shareScreenshot(elementId) {
-  const el = document.getElementById(elementId);
-  if (!el) return;
+async function shareLink(winner, shareText, fallbackMsg) {
+  const url = 'https://shakbaz.github.io/quipaye/';
+  const text = shareText(winner);
   try {
-    const canvas = await html2canvas(el, {
-      backgroundColor: null,
-      scale: 2,
-      useCORS: true,
-      logging: false
-    });
-    canvas.toBlob(async (blob) => {
-      const file = new File([blob], 'qui-paye.png', { type: 'image/png' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Qui paye ?',
-          text: '🎰 Le sort a parlé !'
-        });
-      } else {
-        // Fallback : téléchargement direct
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'qui-paye.png';
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    }, 'image/png');
+    if (navigator.share) {
+      await navigator.share({ title: 'Qui paye ?', text, url });
+    } else {
+      await navigator.clipboard.writeText(text + '\n' + url);
+      alert(fallbackMsg);
+    }
   } catch(e) {
-    console.error('Screenshot error:', e);
+    if (e.name !== 'AbortError') {
+      await navigator.clipboard.writeText(text + '\n' + url);
+      alert(fallbackMsg);
+    }
   }
 }
 
@@ -588,12 +578,12 @@ function App() {
   const handleShare = async () => {
     if (!winner) return;
     setSharing(true);
-    await shareScreenshot('capture-zone');
+    await shareLink(winner, t.shareText, t.shareFallback);
     setSharing(false);
   };
 
   return (
-    <div id="capture-zone" className="w-full max-w-sm mx-auto p-4 flex flex-col gap-4" style={{minHeight:'100vh', paddingTop:'2rem', paddingBottom:'2rem'}} dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="w-full max-w-sm mx-auto p-4 flex flex-col gap-4" style={{minHeight:'100vh', paddingTop:'2rem', paddingBottom:'2rem'}} dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black plain-text tracking-tight">{t.title}</h1>
@@ -653,7 +643,7 @@ function App() {
             <button onClick={reset} className="flex-1 py-3 rounded-xl title-soft font-semibold text-sm glass hover:bg-purple-500/20 transition-all">{t.replay}</button>
             <button onClick={handleShare} disabled={sharing}
               className="flex-1 py-3 rounded-xl title-soft font-semibold text-sm glass hover:bg-purple-500/20 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
-              {sharing ? <span className="animate-spin">⏳</span> : <span>📸</span>}
+              {sharing ? <span className="animate-spin">⏳</span> : <span>🔗</span>}
               <span>{t.share}</span>
             </button>
           </div>
