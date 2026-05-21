@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Qui paye ?</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              violet: '#7c3aed',
+              pink: '#ec4899',
+              orange: '#f97316'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Cairo:wght@400;600;700;900&display=swap');
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background 0.35s ease, color 0.35s ease; }
+    body.theme-dark { background: #0d0d1a; color: #fff; }
+    body.theme-light { background: linear-gradient(180deg, #f6f3ff 0%, #fff7fb 100%); color: #1f2340; }
+
+    @keyframes slot-roll { 0%,100% { transform: translateY(0); opacity:1; } 25% { transform: translateY(-30px); opacity:0; } 26% { transform: translateY(30px); opacity:0; } 75% { transform: translateY(0); opacity:1; } }
+    @keyframes winner-pop { 0% { transform: scale(0.3) rotate(-10deg); opacity:0; } 60% { transform: scale(1.15) rotate(3deg); opacity:1; } 80% { transform: scale(0.95) rotate(-1deg); } 100% { transform: scale(1) rotate(0deg); opacity:1; } }
+    @keyframes glow-pulse { 0%,100% { box-shadow: 0 0 20px rgba(168,85,247,.35), 0 0 40px rgba(124,58,237,.18); } 50% { box-shadow: 0 0 40px rgba(236,72,153,.42), 0 0 80px rgba(168,85,247,.25), 0 0 120px rgba(124,58,237,.18); } }
+    @keyframes float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    @keyframes tag-in { 0% { transform: scale(0) rotate(-10deg); opacity:0; } 100% { transform: scale(1) rotate(0deg); opacity:1; } }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+    @keyframes fade-slide-in { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+
+    .winner-pop { animation: winner-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .glow-pulse { animation: glow-pulse 1.5s ease-in-out infinite; }
+    .float { animation: float 3s ease-in-out infinite; }
+    .slot-rolling { animation: slot-roll 0.12s linear infinite; }
+    .tag-in { animation: tag-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .shake { animation: shake 0.5s ease-in-out; }
+    .fade-slide-in { animation: fade-slide-in 0.4s ease forwards; }
+
+    .theme-dark .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.25);
+    }
+    .theme-light .glass {
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(124,58,237,0.12);
+      box-shadow: 0 20px 45px rgba(116, 85, 255, 0.12);
+    }
+
+    .winner-text {
+      background: linear-gradient(90deg, #7c3aed, #ec4899, #f97316, #ec4899, #7c3aed);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 2s linear infinite;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
+      background-size: 200% 200%;
+      transition: all 0.3s ease;
+      box-shadow: 0 16px 30px rgba(168,85,247,0.22);
+    }
+    .btn-primary:hover { background-position: right center; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(168,85,247,0.5); }
+    .btn-primary:active { transform: translateY(0px) scale(0.98); }
+
+    .theme-dark .input-field {
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      color: white;
+    }
+    .theme-light .input-field {
+      background: rgba(255,255,255,0.85);
+      border: 1.5px solid rgba(124,58,237,0.12);
+      color: #1f2340;
+    }
+    .input-field { transition: all 0.2s ease; }
+    .input-field:focus { outline:none; border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.2); }
+    .theme-dark .input-field::placeholder { color: rgba(255,255,255,0.35); }
+    .theme-light .input-field::placeholder { color: rgba(31,35,64,0.35); }
+
+    .theme-dark .slot-display {
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(236,72,153,0.15));
+      border: 2px solid rgba(168,85,247,0.3);
+    }
+    .theme-light .slot-display {
+      background: linear-gradient(135deg, rgba(124,58,237,0.09), rgba(236,72,153,0.08));
+      border: 2px solid rgba(168,85,247,0.16);
+    }
+    .slot-display {
+      position: relative;
+      overflow: hidden;
+      transition: background .35s ease, border-color .35s ease;
+    }
+    .theme-dark .slot-display::before {
+      content: '';
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background: linear-gradient(to bottom, rgba(13,13,26,0.8) 0%, transparent 30%, transparent 70%, rgba(13,13,26,0.8) 100%);
+      z-index: 2; pointer-events: none;
+    }
+    .theme-light .slot-display::before {
+      content: '';
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background: linear-gradient(to bottom, rgba(246,243,255,0.85) 0%, transparent 30%, transparent 70%, rgba(255,247,251,0.9) 100%);
+      z-index: 2; pointer-events: none;
+    }
+
+    .theme-dark .muted { color: rgba(196,181,253,0.72); }
+    .theme-light .muted { color: rgba(91,58,170,0.76); }
+    .theme-dark .soft { color: rgba(255,255,255,0.5); }
+    .theme-light .soft { color: rgba(31,35,64,0.55); }
+    .theme-dark .title-soft { color: rgba(196,181,253,0.9); }
+    .theme-light .title-soft { color: rgba(91,58,170,0.9); }
+    .theme-dark .plain-text { color: white; }
+    .theme-light .plain-text { color: #1f2340; }
+    .theme-dark .chip-text { color: #e9ddff; }
+    .theme-light .chip-text { color: #5128a7; }
+    .theme-dark .subtle-bg { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.15); }
+    .theme-light .subtle-bg { background: rgba(124,58,237,0.06); border: 1px solid rgba(124,58,237,0.1); }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .25s ease;
+      position: relative;
+    }
+    .icon-btn:hover { transform: translateY(-1px); }
+    .lang-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      left: auto !important;
+      min-width: 60px;
+      padding: 6px;
+      border-radius: 16px;
+      z-index: 999;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .theme-light .lang-menu { background: rgba(255,255,255,0.92); border: 1px solid rgba(124,58,237,0.12); box-shadow: 0 18px 40px rgba(116, 85, 255, 0.16); }
+    .theme-dark .lang-menu { background: rgba(20,20,36,0.96); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4); }
+    .lang-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      transition: all .2s ease;
+      text-align: left;
+    }
+    .lang-option:hover { background: rgba(168,85,247,0.12); }
+    .lang-option.active { background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(236,72,153,0.16)); }
+
+
+    [lang="ar"] * { font-family: 'Cairo', sans-serif !important; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+    ::-webkit-scrollbar-thumb { background: rgba(168,85,247,0.5); border-radius: 2px; }
+  </style>
+</head>
+<body class="theme-dark">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+const EMOJIS = ["🎉","🎊","🍕","🎲","💸","🃏","🎰","🍾","🔥","⚡","💫","🌟","🎯","🎸"];
+const AVATARS = ["🐱","🐶","🦊","🐻","🐼","🦁","🐯","🦄","🐸","🐺","🦋","🦉"];
+const LANG_OPTIONS = [
+  { key: 'FR', flag: '🇫🇷', label: 'Français' },
+  { key: 'AR', flag: '🇩🇿', label: 'العربية' },
+  { key: 'EN', flag: '🇬🇧', label: 'English' }
+];
+
+const TEXT = {
+  FR: {
+    title: "Qui paye ?",
+    subtitle: "Le sort en décide !",
+    addFriends: "Ajouter des amis",
+    placeholder: "Prénom du gourmand...",
+    helper: "Ajoute au moins 2 personnes pour commencer 👆",
+    drawing: "Tirage en cours...",
+    cta: "TIRER AU SORT !",
+    winner: "🎉 C'est lui/elle qui paye !",
+    replay: "🔄 Rejouer",
+    copy: "📋 Copier",
+    history: "Historique des tirages",
+    emptyHistory: "Aucun tirage pour l'instant...",
+    historyTitle: "Historique",
+    languageTitle: "Langue",
+    themeTitle: "Thème",
+    copyText: (name) => `${name} doit payer ! 💸`,
+    resultLabel: (name) => `${name} a été tiré au sort`
+  },
+  EN: {
+    title: "Who pays?",
+    subtitle: "Let fate decide!",
+    addFriends: "Add friends",
+    placeholder: "Type a name...",
+    helper: "Add at least 2 people to start 👆",
+    drawing: "Drawing...",
+    cta: "SPIN THE DRAW!",
+    winner: "🎉 This person has to pay!",
+    replay: "🔄 Play again",
+    copy: "📋 Copy",
+    history: "Draw history",
+    emptyHistory: "No draws yet...",
+    historyTitle: "History",
+    languageTitle: "Language",
+    themeTitle: "Theme",
+    copyText: (name) => `${name} has to pay! 💸`,
+    resultLabel: (name) => `${name} was selected`
+  },
+  AR: {
+    title: "من يدفع؟",
+    subtitle: "خلّي الحظ يختار!",
+    addFriends: "أضف الأصدقاء",
+    placeholder: "اكتب الاسم...",
+    helper: "أضف شخصين على الأقل للبدء 👆",
+    drawing: "جارٍ السحب...",
+    cta: "ابدأ السحب!",
+    winner: "🎉 هذا الشخص سيدفع!",
+    replay: "🔄 إعادة",
+    copy: "📋 نسخ",
+    history: "سجل السحوبات",
+    emptyHistory: "لا توجد سحوبات بعد...",
+    historyTitle: "السجل",
+    languageTitle: "اللغة",
+    themeTitle: "المظهر",
+    copyText: (name) => `💸 ${name} سيدفع!`,
+    resultLabel: (name) => `تم اختيار ${name}`
+  }
+};
+
+function getAvatar(name) {
+  let hash = 0;
+  for (let c of name) hash = (hash * 31 + c.charCodeAt(0)) % AVATARS.length;
+  return AVATARS[hash];
+}
+
+function launchConfetti(theme) {
+  const colors = theme === 'dark'
+    ? ['#a855f7','#ec4899','#7c3aed','#f97316','#fbbf24','#34d399']
+    : ['#8b5cf6','#ec4899','#fb7185','#f59e0b','#22c55e','#38bdf8'];
+  const opts = { particleCount: 120, spread: 80, origin: { y: 0.6 }, colors };
+  confetti({ ...opts, angle: 60, origin: { x: 0, y: 0.7 } });
+  setTimeout(() => confetti({ ...opts, angle: 120, origin: { x: 1, y: 0.7 } }), 200);
+  setTimeout(() => confetti({ ...opts, particleCount: 60, origin: { x: 0.5, y: 0.5 } }), 400);
+}
+
+function Tag({ name, onRemove }) {
+  return (
+    <span className="tag-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold subtle-bg chip-text">
+      <span>{getAvatar(name)}</span>
+      <span>{name}</span>
+      <button onClick={() => onRemove(name)} className="ml-1 w-4 h-4 rounded-full flex items-center justify-center hover:text-white hover:bg-purple-500 transition-all text-xs font-bold">×</button>
+    </span>
+  );
+}
+
+function SlotDisplay({ phase, currentName, winner, t, isArabic }) {
+  if (phase === 'idle') return (
+    <div className="slot-display rounded-2xl p-8 flex flex-col items-center justify-center min-h-[120px]">
+      <span className="text-5xl font-black soft tracking-widest select-none">???</span>
+    </div>
+  );
+  if (phase === 'rolling') return (
+    <div className="slot-display rounded-2xl p-8 flex flex-col items-center justify-center min-h-[120px]">
+      <div className="slot-rolling text-3xl font-black title-soft select-none overflow-hidden" style={{height:'48px', lineHeight:'48px'}}>{currentName}</div>
+      <p className="mt-3 muted text-sm animate-pulse">{t.drawing}</p>
+    </div>
+  );
+  if (phase === 'winner') return (
+    <div className="slot-display rounded-2xl p-8 flex flex-col items-center justify-center min-h-[120px] glow-pulse">
+      <div className="winner-pop float text-center" dir={isArabic ? 'rtl' : 'ltr'}>
+        <div className="text-5xl mb-2">{getAvatar(winner)}</div>
+        <div className="winner-text text-4xl font-black">{winner}</div>
+        <p className="mt-2 muted text-sm font-semibold">{t.winner}</p>
+      </div>
+    </div>
+  );
+}
+
+function HeaderActions({ showHistory, setShowHistory, t, lang, setLang, theme, setTheme, isArabic }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const currentLang = LANG_OPTIONS.find(item => item.key === lang) || LANG_OPTIONS[0];
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="flex gap-2 items-center" dir="ltr">
+      <button onClick={() => setShowHistory(!showHistory)} className="icon-btn glass plain-text hover:bg-white/10 text-sm" title={t.historyTitle}>🕐</button>
+
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="icon-btn glass plain-text hover:bg-white/10 text-lg"
+          title={t.languageTitle}>
+          <span aria-hidden="true">{currentLang.flag}</span>
+        </button>
+        {open && (
+          <div className="lang-menu" dir="ltr" {...(isArabic ? { top: 'calc(100% + 8px)', left: 0, right: 'auto', position: 'absolute' } : { top: 'calc(100% + 8px)', right: 0, left: 'auto', position: 'absolute' })}>
+            {LANG_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                onClick={() => { setLang(option.key); setOpen(false); }}
+                title={option.label}
+                className={`lang-option ${lang === option.key ? 'active' : ''} plain-text`}
+                style={{ justifyContent: 'center', padding: '10px 8px' }}>
+                <span className="text-2xl leading-none">{option.flag}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="icon-btn glass plain-text hover:bg-white/10 text-lg" title={t.themeTitle}>
+        <span aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
+      </button>
+    </div>
+  );
+}
+
+function App() {
+  const [input, setInput] = useState('');
+  const [names, setNames] = useState([]);
+  const [phase, setPhase] = useState('idle');
+  const [currentName, setCurrentName] = useState('');
+  const [winner, setWinner] = useState('');
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [lang, setLang] = useState(localStorage.getItem('qui-paye-lang') || 'FR');
+  const [theme, setTheme] = useState(localStorage.getItem('qui-paye-theme') || 'dark');
+  const inputRef = useRef(null);
+  const rollRef = useRef(null);
+  const t = TEXT[lang];
+  const isArabic = lang === 'AR';
+
+  useEffect(() => {
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+    localStorage.setItem('qui-paye-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('qui-paye-lang', lang);
+    document.documentElement.lang = lang.toLowerCase();
+    document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+  }, [lang, isArabic]);
+
+  const notifyShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 600);
+  };
+
+  const normalizedNames = useMemo(() => names.map(n => n.toLowerCase()), [names]);
+
+  const addName = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    if (normalizedNames.includes(trimmed.toLowerCase())) {
+      notifyShake();
+      return;
+    }
+    setNames(prev => [...prev, trimmed]);
+    setInput('');
+    inputRef.current?.focus();
+  }, [input, normalizedNames]);
+
+  const removeName = useCallback((name) => {
+    setNames(prev => prev.filter(n => n !== name));
+    if (winner === name) { setWinner(''); setPhase('idle'); }
+  }, [winner]);
+
+  const handleKey = (e) => { if (e.key === 'Enter') addName(); };
+
+  const draw = useCallback(() => {
+    if (names.length < 2) {
+      notifyShake();
+      return;
+    }
+    setPhase('rolling');
+    setWinner('');
+    const picked = names[Math.floor(Math.random() * names.length)];
+    let elapsed = 0;
+    const totalDuration = 2800;
+    const interval = 80;
+    rollRef.current = setInterval(() => {
+      elapsed += interval;
+      const randomIdx = Math.floor(Math.random() * names.length);
+      setCurrentName(names[randomIdx]);
+      if (elapsed >= totalDuration) {
+        clearInterval(rollRef.current);
+        setCurrentName(picked);
+        setWinner(picked);
+        setPhase('winner');
+        setHistory(prev => [{
+          name: picked,
+          time: new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false}),
+          emoji: EMOJIS[Math.floor(Math.random()*EMOJIS.length)]
+        }, ...prev.slice(0, 9)]);
+        setTimeout(() => launchConfetti(theme), 100);
+      }
+    }, interval);
+  }, [names, theme, lang, isArabic]);
+
+  useEffect(() => () => clearInterval(rollRef.current), []);
+
+  const reset = () => { setPhase('idle'); setWinner(''); setCurrentName(''); };
+  const copyResult = () => { if (winner) navigator.clipboard.writeText(t.copyText(winner)); };
+
+  return (
+    <div className="w-full max-w-sm mx-auto p-4 flex flex-col gap-4" style={{minHeight:'100vh', paddingTop:'2rem', paddingBottom:'2rem'}} dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-black plain-text tracking-tight">{t.title} <span className="text-2xl">💸</span></h1>
+          <p className="muted text-xs mt-0.5">{t.subtitle}</p>
+        </div>
+        <div dir="ltr"><HeaderActions
+          showHistory={showHistory}
+          setShowHistory={setShowHistory}
+          t={t}
+          lang={lang}
+          setLang={setLang}
+          theme={theme}
+          setTheme={setTheme}
+          isArabic={isArabic}
+        />
+        </div>
+      </div>
+
+      <div className="glass rounded-2xl p-4 flex flex-col gap-3">
+        <p className="title-soft text-xs font-semibold uppercase tracking-widest">{t.addFriends}</p>
+        <div className={`flex gap-2 ${shake ? 'shake' : ''} ${isArabic ? 'flex-row-reverse' : ''}`}>
+          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
+            placeholder={t.placeholder}
+            className="input-field flex-1 px-4 py-2.5 rounded-xl text-sm font-medium" />
+          <button onClick={addName}
+            className="btn-primary w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-lg"
+            aria-label={t.addFriends}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="1" x2="12" y2="5" strokeLinecap="round"/><line x1="10" y1="3" x2="14" y2="3" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        {names.length > 0 && (
+          <div className={`flex flex-wrap gap-2 pt-1 ${isArabic ? 'justify-end' : ''}`}>
+            {names.map(n => <Tag key={n} name={n} onRemove={removeName} />)}
+          </div>
+        )}
+        {names.length < 2 && (
+          <p className="muted text-xs text-center">{t.helper}</p>
+        )}
+      </div>
+
+      <SlotDisplay phase={phase} currentName={currentName} winner={winner} t={t} isArabic={isArabic} />
+
+      <div className="flex flex-col gap-2">
+        <button onClick={draw} disabled={phase === 'rolling'}
+          className="btn-primary w-full py-4 rounded-2xl text-white font-black text-lg tracking-wide shadow-xl disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          aria-label={t.cta}>
+          {phase === 'rolling' ? (
+            <><span className="animate-spin text-xl">🎲</span><span>{t.drawing}</span></>
+          ) : (
+            <><span>🎰</span><span>{t.cta}</span></>
+          )}
+        </button>
+        {phase === 'winner' && (
+          <div className={`flex gap-2 fade-slide-in ${isArabic ? 'flex-row-reverse' : ''}`}>
+            <button onClick={reset} className="flex-1 py-3 rounded-xl title-soft font-semibold text-sm glass hover:bg-purple-500/20 transition-all">{t.replay}</button>
+            <button onClick={copyResult} className="flex-1 py-3 rounded-xl title-soft font-semibold text-sm glass hover:bg-purple-500/20 transition-all">{t.copy}</button>
+          </div>
+        )}
+      </div>
+
+      {showHistory && history.length > 0 && (
+        <div className="glass rounded-2xl p-4 flex flex-col gap-3">
+          <p className="title-soft text-xs font-semibold uppercase tracking-widest">{t.history}</p>
+          <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+            {history.map((h, i) => (
+              <div key={i} className="history-card flex items-center justify-between px-3 py-2 rounded-xl subtle-bg">
+                <div className={`flex items-center gap-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-lg">{h.emoji}</span>
+                  <span className="plain-text font-semibold text-sm">{h.name}</span>
+                </div>
+                <span className="muted text-xs">{h.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {showHistory && history.length === 0 && (
+        <div className="glass rounded-2xl p-6 text-center">
+          <p className="muted text-sm">{t.emptyHistory}</p>
+        </div>
+      )}
+
+      {winner && <span className="sr-only">{t.resultLabel(winner)}</span>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
