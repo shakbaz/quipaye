@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Qui paye ?</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -88,7 +88,7 @@
       border: 1.5px solid rgba(124,58,237,0.12);
       color: #1f2340;
     }
-    .input-field { transition: all 0.2s ease; }
+    .input-field { transition: all 0.2s ease; font-size: 16px !important; }
     .input-field:focus { outline:none; border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.2); }
     .theme-dark .input-field::placeholder { color: rgba(255,255,255,0.35); }
     .theme-light .input-field::placeholder { color: rgba(31,35,64,0.35); }
@@ -251,6 +251,110 @@ const TEXT = {
   }
 };
 
+
+function createAudioContext() {
+  return new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playDrumRoll(duration = 2800) {
+  const ctx = createAudioContext();
+  const gainNode = ctx.createGain();
+  gainNode.connect(ctx.destination);
+
+  let time = ctx.currentTime;
+  const totalBeats = Math.floor(duration / 80);
+  for (let i = 0; i < totalBeats; i++) {
+    const progress = i / totalBeats;
+    const interval = 0.08 * (1 + progress * 1.5); // ralentit vers la fin
+    const bufferSize = ctx.sampleRate * 0.04;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let j = 0; j < bufferSize; j++) {
+      data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufferSize * 0.15));
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 180 + Math.random() * 40;
+    filter.Q.value = 0.8;
+    source.connect(filter);
+    filter.connect(gainNode);
+    gainNode.gain.setValueAtTime(0.35, time);
+    source.start(time);
+    time += interval * (1 - progress * 0.4);
+  }
+  return ctx;
+}
+
+function playVictorySound() {
+  const ctx = createAudioContext();
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.55, ctx.currentTime);
+  master.connect(ctx.destination);
+
+  // Explosion de pièces de casino : 3 couches simultanées
+
+  // 1. Ping métallique principal (montée rapide)
+  const pingFreqs = [880, 1100, 1320, 1760];
+  pingFreqs.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * 0.5, ctx.currentTime + i * 0.06);
+    osc.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + i * 0.06 + 0.08);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime + i * 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.06 + 0.55);
+    osc.connect(gain); gain.connect(master);
+    osc.start(ctx.currentTime + i * 0.06);
+    osc.stop(ctx.currentTime + i * 0.06 + 0.6);
+  });
+
+  // 2. Basse punchy (kick de casino)
+  const kick = ctx.createOscillator();
+  const kickGain = ctx.createGain();
+  kick.type = 'sine';
+  kick.frequency.setValueAtTime(160, ctx.currentTime);
+  kick.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.18);
+  kickGain.gain.setValueAtTime(0.7, ctx.currentTime);
+  kickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+  kick.connect(kickGain); kickGain.connect(master);
+  kick.start(ctx.currentTime); kick.stop(ctx.currentTime + 0.25);
+
+  // 3. Cliquetis de pièces (bruit court x5)
+  for (let i = 0; i < 6; i++) {
+    const bufSize = ctx.sampleRate * 0.06;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let j = 0; j < bufSize; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufSize * 0.12));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass'; filter.frequency.value = 3000 + Math.random() * 2000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.22 + Math.random() * 0.15, ctx.currentTime);
+    src.connect(filter); filter.connect(g); g.connect(master);
+    src.start(ctx.currentTime + 0.05 + i * 0.09 + Math.random() * 0.04);
+  }
+
+  // 4. Accord de synth festif final
+  const chordFreqs = [523, 659, 784];
+  chordFreqs.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 1200;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + 0.28);
+    gain.gain.setValueAtTime(0, ctx.currentTime + 0.28);
+    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+    osc.connect(filter); filter.connect(gain); gain.connect(master);
+    osc.start(ctx.currentTime + 0.28);
+    osc.stop(ctx.currentTime + 1.0);
+  });
+}
+
 function getAvatar(name) {
   let hash = 0;
   for (let c of name) hash = (hash * 31 + c.charCodeAt(0)) % AVATARS.length;
@@ -300,7 +404,7 @@ function SlotDisplay({ phase, currentName, winner, t, isArabic }) {
   );
 }
 
-function HeaderActions({ showHistory, setShowHistory, t, lang, setLang, theme, setTheme, isArabic }) {
+function HeaderActions({ showHistory, setShowHistory, t, lang, setLang, theme, setTheme, isArabic, soundEnabled, setSoundEnabled }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
   const currentLang = LANG_OPTIONS.find(item => item.key === lang) || LANG_OPTIONS[0];
@@ -315,6 +419,9 @@ function HeaderActions({ showHistory, setShowHistory, t, lang, setLang, theme, s
 
   return (
     <div className="flex gap-2 items-center" dir="ltr">
+      <button onClick={() => setSoundEnabled(v => !v)} className="icon-btn glass plain-text hover:bg-white/10 text-lg" title={soundEnabled ? "Son activé" : "Son désactivé"}>
+        <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
+      </button>
       <button onClick={() => setShowHistory(!showHistory)} className="icon-btn glass plain-text hover:bg-white/10 text-sm" title={t.historyTitle}>🕐</button>
 
       <div className="relative" ref={menuRef}>
@@ -356,6 +463,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [shake, setShake] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('qui-paye-sound') !== 'false');
   const [lang, setLang] = useState(localStorage.getItem('qui-paye-lang') || 'FR');
   const [theme, setTheme] = useState(localStorage.getItem('qui-paye-theme') || 'dark');
   const inputRef = useRef(null);
@@ -364,6 +472,7 @@ function App() {
   const isArabic = lang === 'AR';
 
   useEffect(() => {
+    localStorage.setItem('qui-paye-sound', soundEnabled);
     document.body.classList.remove('theme-dark', 'theme-light');
     document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
     localStorage.setItem('qui-paye-theme', theme);
@@ -409,6 +518,8 @@ function App() {
     setPhase('rolling');
     setWinner('');
     const picked = names[Math.floor(Math.random() * names.length)];
+    let drumCtx = null;
+    if (soundEnabled) { try { drumCtx = playDrumRoll(2800); } catch(e) {} }
     let elapsed = 0;
     const totalDuration = 2800;
     const interval = 80;
@@ -427,6 +538,7 @@ function App() {
           emoji: EMOJIS[Math.floor(Math.random()*EMOJIS.length)]
         }, ...prev.slice(0, 9)]);
         setTimeout(() => launchConfetti(theme), 100);
+        if (soundEnabled) { try { playVictorySound(); } catch(e) {} }
       }
     }, interval);
   }, [names, theme, lang, isArabic]);
@@ -452,6 +564,8 @@ function App() {
           theme={theme}
           setTheme={setTheme}
           isArabic={isArabic}
+          soundEnabled={soundEnabled}
+          setSoundEnabled={setSoundEnabled}
         />
         </div>
       </div>
